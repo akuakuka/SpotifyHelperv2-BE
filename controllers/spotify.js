@@ -29,7 +29,7 @@ const asyncTimeout = async (ms) => {
 const yksiRetrylla = async (id, retries, spotifyapi) => {
     let options = { album_type: 'album', country: 'FI', limit: 50 }
     let RETRY_INTERVAL = 10;
-       try {
+    try {
         const response = await spotifyapi.getArtistAlbums(id, options)
         return response;
     } catch (e) {
