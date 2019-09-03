@@ -88,6 +88,7 @@ app.get(
 );
 
 app.get("/", ensureAuthenticated, (req, res) => {
+  console.log("ensure")
   res.send("AUTHENTIC");
 });
 app.get(

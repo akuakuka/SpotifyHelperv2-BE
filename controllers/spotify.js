@@ -143,10 +143,7 @@ spotifyRouter.get('/followArtist/:id', async (request, response, next) => {
     }
 })
 spotifyRouter.get('/ensureAuthenticated', async (request, response, next) => {
-    console.log(request.user.access_token)
-    let spotifyapi = await createAuthenticatedSpotiffyApi(request.user.access_token, request.user.refresh_token)
-    let me = await spotifyapi.getMe();
-    console.log(me)
+
        response.send("Authenticated")
 })
 spotifyRouter.get('/unFollowArtist/:id', async (request, response, next) => {
