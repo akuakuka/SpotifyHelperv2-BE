@@ -21,6 +21,8 @@
     "nodemon": "^1.19.1",
     "passport": "^0.4.0",
     "passport-spotify": "^1.0.1",
-    "spotify-web-api-node": "git+https://github.com/kauffecup/spotify-web-api-node.git"
+    "query-string": "^6.8.3",
+    "spotify-web-api-node": "git+https://github.com/kauffecup/spotify-web-api-node.git#error-headers",
+    "waait": "^1.0.5"
   }
 }

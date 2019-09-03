@@ -1,7 +1,8 @@
 const spotifyRouter = require('express').Router()
 const SpotifyWebApi = require('spotify-web-api-node')
 const axios = require('axios')
-
+const wait = require('waait');
+const queryString = require('query-string');
 const createAuthenticatedSpotiffyApi = (access, refresh) => {
     let spotifyApi = new SpotifyWebApi();
     spotifyApi.setAccessToken(access);
@@ -23,59 +24,38 @@ const getFollowed = async (spotifyApi, aft) => {
     }
 };
 
-const asyncTimeout = async (ms) => {
-    await new Promise(resolve => setTimeout(resolve, ms));
-}
-const yksiRetrylla = async (id, retries, spotifyapi) => {
+const getArtistAlbumsRecursiveHelper = async (id, spotifyapi) => {
     let options = { album_type: 'album', country: 'FI', limit: 50 }
-    let RETRY_INTERVAL = 10;
     try {
         const response = await spotifyapi.getArtistAlbums(id, options)
         return response;
     } catch (e) {
-        if (retries > 0) {
-            console.log(e)
-            let s = (parseInt(e.headers['retry-after']) * 1000) + 1000;
-            console.log(`Waiting for ${s}`)
-            await asyncTimeout(
-                e.headers['retry-after'] ?
-                    (parseInt(e.headers['retry-after']) * 1000) + 1000 :
-                    RETRY_INTERVAL
-            );
-            return await yksiRetrylla(id, retries - 1, spotifyapi);
-        }
-        throw e;
+     
+            let s = (parseInt(e.headers['retry-after']))+1;
+            console.log(`Waiting for ${s} seconds`)
+            await wait(s*1000);
+            return await getArtistAlbumsRecursiveHelper(id, spotifyapi);
     }
 }
 const getArtistsAlbums = async (artistit, spotifyapi) => {
 
     const promises = await artistit.map(async (artist) => {
-        const response = await yksiRetrylla(artist.id, 10, spotifyapi);
+        const response = await getArtistAlbumsRecursiveHelper(artist.id, spotifyapi);
 
         artist.albums = response.body.items;
         return artist;
     })
-    //   const albms = await Promise.all(promises)
     const resolved = await Promise.all(promises)
     return resolved;
 }
 
-spotifyRouter.get('/getFollowedArtistData', async (request, response, next) => {
-    let spotifyapi = await createAuthenticatedSpotiffyApi(request.user.access_token, request.user.refresh_token)
-    const artistit = await getFollowed(spotifyapi);
-    const res = await getArtistsAlbums(artistit, spotifyapi);
-    //  console.log(request.session)
-    response.json(res)
-})
-
-spotifyRouter.post('/saveAlbumsToUser', async (request, response, next) => {
-    let artist = request.body.albums
+const saveAlbumsToUser = async (token, artist) => {
+   
     let ida = []
     let albumIds = await artist.map((artist) => {
         artist.albums.map(alb => ida.push(alb.id))
     })
-    let accessToken = request.user.access_token;
-    let tok = "Bearer " + accessToken;
+    let tok = "Bearer " + token;
     let url = 'https://api.spotify.com/v1/me/albums?ids='
     const config = {
         headers: {
@@ -108,9 +88,30 @@ spotifyRouter.post('/saveAlbumsToUser', async (request, response, next) => {
 
         })
     }
-    response.send("OK")
+}
+spotifyRouter.get('/getFollowedArtistData', async (request, response, next) => {
+    let spotifyapi = await createAuthenticatedSpotiffyApi(request.user.access_token, request.user.refresh_token)
+    const artistit = await getFollowed(spotifyapi);
+    const res = await getArtistsAlbums(artistit, spotifyapi);
+    //  console.log(request.session)
+    response.json(res)
 })
 
+spotifyRouter.post('/saveAlbumsToUser', async (request, response, next) => {
+    let accessToken = request.user.access_token
+    let artist = request.body.albums
+    saveAlbumsToUser(accessToken,artist)
+    response.send("OK")
+})
+spotifyRouter.post('/removeAllFollowed', async (request, response, next) => {
+    
+    let spotifyapi = await createAuthenticatedSpotiffyApi(request.user.access_token, request.user.refresh_token)
+    let rsp = await spotifyapi.getMySavedAlbums({album_type: 'album', country: 'FI', limit: 50});
+    console.log(rsp.items)
+    let offset = rsp.data.next;
+    console.log(queryString.parse(offset))
+    response.json(rsp)
+})
 
 spotifyRouter.get('/getUsersFollowedArtists', async (request, response, next) => {
     let spotifyapi = await createAuthenticatedSpotiffyApi(request.user.access_token, request.user.refresh_token)
@@ -142,7 +143,11 @@ spotifyRouter.get('/followArtist/:id', async (request, response, next) => {
     }
 })
 spotifyRouter.get('/ensureAuthenticated', async (request, response, next) => {
-    response.send("Authenticated")
+    console.log(request.user.access_token)
+    let spotifyapi = await createAuthenticatedSpotiffyApi(request.user.access_token, request.user.refresh_token)
+    let me = await spotifyapi.getMe();
+    console.log(me)
+       response.send("Authenticated")
 })
 spotifyRouter.get('/unFollowArtist/:id', async (request, response, next) => {
     let spotifyapi = await createAuthenticatedSpotiffyApi(request.user.access_token, request.user.refresh_token)

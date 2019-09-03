@@ -73,8 +73,8 @@ mongoose
   });
 
 app.get("/", (req, res) => {
-  let authurl = `<a href="${frontEndUrl}">LOGIN  </a>`;
-  res.send(authurl);
+  
+  res.status(200).send('Not Logged in!');
 });
 
 app.use("/api/spotify", ensureAuthenticated, spotifyRouter);
